@@ -159,19 +159,12 @@ const ROUTEIQ_API = 'http://YOUR_ORACLE_IP:3000';
           border-radius: 16px;
           box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18), 0 0 1px rgba(0,0,0,0.1);
           z-index: 999998;
-          display: flex;
+          display: none;
           flex-direction: column;
           overflow: hidden;
-          opacity: 0;
-          pointer-events: none;
-          transform: translateY(20px) scale(0.95);
-          transform-origin: ${isLeft ? 'bottom left' : 'bottom right'};
-          transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1), transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
         #routeiq-window.riq-open {
-          opacity: 1;
-          pointer-events: auto;
-          transform: translateY(0) scale(1);
+          display: flex;
         }
         .riq-header {
           background: ${primaryColor};
@@ -242,6 +235,9 @@ const ROUTEIQ_API = 'http://YOUR_ORACLE_IP:3000';
         .riq-messages {
           flex: 1;
           overflow-y: auto;
+          max-height: 340px;
+          word-wrap: break-word;
+          overflow-wrap: break-word;
           padding: 16px;
           display: flex;
           flex-direction: column;
@@ -251,7 +247,7 @@ const ROUTEIQ_API = 'http://YOUR_ORACLE_IP:3000';
         .riq-msg-row {
           display: flex;
           flex-direction: column;
-          max-width: 80%;
+          max-width: 100%;
         }
         .riq-msg-row.riq-user {
           align-self: flex-end;
@@ -261,18 +257,23 @@ const ROUTEIQ_API = 'http://YOUR_ORACLE_IP:3000';
           align-self: flex-start;
           align-items: flex-start;
         }
-        .riq-msg-bubble {
+        .riq-msg-bubble,
+        .riq-user-msg,
+        .riq-bot-msg {
+          max-width: 80%;
+          word-break: break-word;
+          white-space: pre-wrap;
           padding: 10px 14px;
           font-size: 14px;
           line-height: 1.45;
-          word-break: break-word;
-          white-space: pre-wrap;
         }
+        .riq-user-msg,
         .riq-user .riq-msg-bubble {
           background: ${primaryColor};
           color: #ffffff;
           border-radius: 16px 16px 4px 16px;
         }
+        .riq-bot-msg,
         .riq-bot .riq-msg-bubble {
           background: #ffffff;
           color: #1e293b;
@@ -281,17 +282,22 @@ const ROUTEIQ_API = 'http://YOUR_ORACLE_IP:3000';
           box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         }
         .riq-sources {
+          margin-top: 4px;
+        }
+        .riq-sources strong,
+        .riq-sources-label {
+          font-weight: bold;
           font-size: 11px;
-          color: #64748b;
-          margin-top: 5px;
-          display: flex;
-          flex-direction: column;
-          gap: 3px;
+          display: block;
+          color: #475569;
         }
         .riq-sources a {
-          color: ${primaryColor};
-          text-decoration: none;
+          font-size: 11px;
+          color: #6366f1;
+          display: block;
+          margin-top: 4px;
           word-break: break-all;
+          text-decoration: none;
         }
         .riq-sources a:hover {
           text-decoration: underline;
@@ -381,18 +387,23 @@ const ROUTEIQ_API = 'http://YOUR_ORACLE_IP:3000';
           gap: 8px;
           background: #ffffff;
         }
-        .riq-input {
+        .riq-input,
+        textarea.riq-input,
+        input.riq-input {
           flex: 1;
+          min-height: 40px;
           border-radius: 24px;
           border: 1px solid #cbd5e1;
-          padding: 9px 16px;
+          padding: 10px 14px;
           font-size: 14px;
           outline: none;
           color: #1e293b;
           background: #f8fafc;
           transition: border-color 0.15s ease, background 0.15s ease;
         }
-        .riq-input:focus {
+        .riq-input:focus,
+        textarea.riq-input:focus,
+        input.riq-input:focus {
           border-color: ${primaryColor};
           background: #ffffff;
         }
@@ -508,19 +519,27 @@ const ROUTEIQ_API = 'http://YOUR_ORACLE_IP:3000';
         row.className = `riq-msg-row riq-${role}`;
 
         const bubble = document.createElement('div');
-        bubble.className = 'riq-msg-bubble';
+        bubble.className = `riq-msg-bubble riq-${role}-msg`;
         bubble.textContent = text;
         row.appendChild(bubble);
 
         if (role === 'bot' && sources && sources.length > 0) {
           const sourcesDiv = document.createElement('div');
           sourcesDiv.className = 'riq-sources';
+
+          const label = document.createElement('strong');
+          label.className = 'riq-sources-label';
+          label.textContent = 'Sources:';
+          sourcesDiv.appendChild(label);
+
           sources.forEach((s) => {
             const link = document.createElement('a');
-            link.href = s.url;
+            const url = typeof s === 'string' ? s : (s.url || '#');
+            const title = typeof s === 'string' ? s : (s.title || s.url || url);
+            link.href = url;
             link.target = '_blank';
             link.rel = 'noopener noreferrer';
-            link.textContent = `Source: ${s.title || s.url}`;
+            link.textContent = title;
             sourcesDiv.appendChild(link);
           });
           row.appendChild(sourcesDiv);
@@ -622,22 +641,33 @@ const ROUTEIQ_API = 'http://YOUR_ORACLE_IP:3000';
         saveMessageHistory([{ role: 'bot', text: welcomeMsg }]);
       }
 
-      // Toggle Window Visibility
+      // Window Visibility Toggle
+      function openChat() {
+        isOpen = true;
+        windowEl.style.display = 'flex';
+        windowEl.classList.add('riq-open');
+        setTimeout(() => {
+          inputEl.focus();
+          scrollToBottom();
+        }, 100);
+      }
+
+      function closeChat() {
+        isOpen = false;
+        windowEl.style.display = 'none';
+        windowEl.classList.remove('riq-open');
+      }
+
       function toggleChat() {
-        isOpen = !isOpen;
         if (isOpen) {
-          windowEl.classList.add('riq-open');
-          setTimeout(() => {
-            inputEl.focus();
-            scrollToBottom();
-          }, 100);
+          closeChat();
         } else {
-          windowEl.classList.remove('riq-open');
+          openChat();
         }
       }
 
       bubbleEl.addEventListener('click', toggleChat);
-      closeBtn.addEventListener('click', toggleChat);
+      closeBtn.addEventListener('click', closeChat);
 
       // Handle Sending User Messages
       function sendMessage() {
